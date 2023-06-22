@@ -9,19 +9,26 @@ import chex
 
 
 class DynamicScale(struct.PyTreeNode):
-    """Dunamic loss scaling for mixed precision gradients.
+    """Dynamic loss scaling for mixed precision gradients.
 
     A forked version of `flax.training.dynamic_scale.DynamicScale`.
     This implementation separates `gradient scaling` and `scaling factor update.`
     The former is applied by `value_and_grad` or `grad`, and the later is applied by
     `update`. See Example section for the specific example.
 
+    Attributes:
+        growth_factor
+        backoff_factor
+        growth_interval
+        fin_steps
+        scale
+        minimum_scale
+
     Example:
         ::
             dyn_scale = DynamicScale()
             grad_fn = dyn_scale.grad(loss_fn)
             grads = grad_fn(params, ...)  # grads are scaled by `dyn_scale.scale`.
-
             new_dyn_scale, is_fin = dyn_scale.update(grads)  # update scale factor.
     """
 
@@ -77,7 +84,7 @@ class DynamicScale(struct.PyTreeNode):
         """Update `DynamicScale`.
 
         Args:
-            grads:
+            grads: a tree that holds gradients.
 
         Returns:
             A tuple of new `DynamicScale` and a bool array that represents

@@ -1,10 +1,13 @@
 """PyTorch utilities."""
 
 from __future__ import annotations
+import typing as tp
 import warnings
 from collections import defaultdict
 
+import numpy as np
 from jax import tree_util
+import chex
 from einops import rearrange
 
 try:
@@ -12,11 +15,60 @@ try:
     import torch.nn as nn
 
     TORCH_AVAILABLE = True
+    Tensor = torch.Tensor
+
 except ImportError:
     TORCH_AVAILABLE = False
+    Tensor = tp.Any  # used for type annotations.
 
-__all__ = ["register_torch_module", "convert_torch_model"]
+__all__ = ["assert_allclose_array_tensor", "register_torch_module", "convert_torch_model"]
 REGISTRY = {}
+
+
+def assert_allclose_array_tensor(
+    array: chex.Array,
+    tensor: Tensor,
+    array_format: str = "...",
+    torch_format: str = "...",
+    *,
+    rtol: float = 0,
+    atol: float = 1e-5,
+    err_msg: tp.Optional[str] = None,
+    verbose: tp.Optional[bool] = None,
+) -> None:
+    """Assert whether JAX array and PyTorch tensor are close.
+
+        This function validates whether JAX array and PyTorch tensor are
+        close or not, and useful for debugging of re-implementation
+        from PyTorch to JAX and JAX to PyTorch.
+
+    Args:
+        array: JAX array.
+        tensor: desired PyTorch tensor.
+        array_format: format of JAX array.
+        torch_format: format of PyTorch tensor. If `torch_format` is not equal
+            to `array_format`, the dimensions of `tensor` are automatically
+            moved according to `array_format`.
+        rtol, atol, err_msg, verbose: corresponding to arguments of
+            `numpy.testing.assert_allclose.`
+
+    Returns:
+        None
+
+    Raises:
+        AssertionError: raised when some values are not close
+            between JAX array and PyTorch tensor.
+    """
+    tensor = rearrange(tensor, f"{torch_format} -> {array_format}")
+    tensor = tensor.detach().cpu().numpy()  # Torch -> NumPy.
+    np.testing.assert_allclose(
+        array,
+        tensor,
+        rtol=rtol,
+        atol=atol,
+        err_msg=err_msg,
+        verbose=verbose,
+    )
 
 
 def register_torch_module(*torch_modules):

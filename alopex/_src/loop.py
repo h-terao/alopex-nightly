@@ -13,6 +13,15 @@ import chex
 __all__ = ["train_loop", "eval_loop"]
 
 
+TrainState = chex.ArrayTree
+TrainFun = tp.Callable[[TrainState, chex.ArrayTree], tuple[TrainState, dict[str, chex.Array]]]
+TrainLoop = tp.Callable[
+    [TrainState, tp.Iterable[chex.ArrayTree], tp.Optional[int]], tuple[TrainState, dict[str, chex.Array]]
+]
+EvalFun = tp.Callable[[TrainState, chex.ArrayTree], dict[str, chex.Array]]
+EvalLoop = tp.Callable[[TrainState, tp.Iterable[chex.ArrayTree], tp.Optional[int]], dict[str, chex.Array]]
+
+
 def _split_batch(iterable: tp.Iterable, max_length: int = -1, prefetch: bool = False, devices=None):
     devices = devices or jax.local_devices()
     num_devices = len(devices)
@@ -94,14 +103,14 @@ def _summarize_scalars(prefix: str, accum_scalars: dict[str, tuple[float, float]
 
 
 def train_loop(
-    train_fun: tp.Callable[[chex.ArrayTree, tp.Any], tuple[chex.ArrayTree, dict[str, chex.Scalar]]],
+    train_fun: TrainFun,
     prefix: tp.Optional[str] = None,
     mode: str = "none",
     prefetch: bool = False,
     replicate: bool = True,
     axis_name: tp.Optional[str] = None,
     devices: tp.Optional[list[chex.Device]] = None,
-) -> tp.Callable[[chex.ArrayTree, tp.Iterable, tp.Optional[int]], tuple[chex.ArrayTree, dict[str, chex.Scalar]]]:
+) -> TrainLoop:
     """
     Args:
         train_fun: training function.
@@ -142,7 +151,7 @@ def train_loop(
     else:
         if isinstance(devices, tp.Sequence):
             if len(devices) > 1:
-                warnings.warn(f"Multiple devices are specified, but use {devices[0]}.")
+                warnings.warn(f"Multiple devices are specified, but only use the first device: {devices[0]}.")
             devices = devices[0]
 
         if mode == "jit":
@@ -167,14 +176,14 @@ def train_loop(
 
 
 def eval_loop(
-    eval_fun: tp.Callable,
+    eval_fun: EvalFun,
     prefix: tp.Optional[str] = None,
     mode: str = "none",
     prefetch: bool = False,
     replicate: bool = True,
     axis_name: tp.Optional[str] = None,
     devices: tp.Optional[list[chex.Device] | chex.Device] = None,
-) -> tp.Callable[[chex.ArrayTree, tp.Iterable, tp.Optional[int]], dict[str, chex.Scalar]]:
+) -> EvalLoop:
     """
     Args:
         eval_fun: evaluation function.

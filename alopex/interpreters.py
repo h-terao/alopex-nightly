@@ -1,5 +1,4 @@
 # flake8: noqa
-__version__ = "0.1.0"
 
 from alopex._src.harvest import harvest
 from alopex._src.harvest import sow

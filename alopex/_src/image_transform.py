@@ -5,6 +5,7 @@ import functools
 import jax
 import jax.numpy as jnp
 import jax.random as jr
+from jax import tree_util
 import jax.scipy.ndimage as ndi
 from einops import rearrange, repeat
 import chex
@@ -21,8 +22,8 @@ def affine_transform(
     matrix: chex.Array,
     *,
     size: tp.Optional[int | tuple[int, int]] = None,
-    order: int = 1,
-    mode: str = "nearest",
+    method: str = "linear",
+    padding_mode: str = "nearest",
     cval: float = 0.0,
 ) -> chex.Array:
     """Apply an affine transformation given by matrix.
@@ -31,8 +32,8 @@ def affine_transform(
         inputs: image array with shape (..., height, width, channels).
         matrix: the inverse coordinate transformation matrix with shape (3, 3).
         size: desired size of the output images. If None, (height, width) of `image` is used.
-        order: the order of the spline interpolation.
-        mode: padding mode for the outside of boundaries.
+        method: the resizing method to use. (nearest | linear).
+        padding_mode: padding mode for the outside of boundaries.
         cval: value to fill past edges.
 
     Returns:
@@ -42,6 +43,13 @@ def affine_transform(
         If multiple images are given, they are transformed given the same matrix.
         To transform images with different transformations, use `jax.vmap` or `jax.lax.scan`.
     """
+    if method in ["nearest"]:
+        order = 0
+    elif method in ["linear", "bilinear", "trilinear"]:
+        order = 1
+    else:
+        raise RuntimeError
+
     *batch_dims, height, width, channel = jnp.shape(inputs)
     inputs = rearrange(inputs, "... h w c -> (... c) h w")
 
@@ -61,10 +69,18 @@ def affine_transform(
         repeat(x_coords, "h w -> n h w", n=len(inputs)),
     ]
 
-    image = ndi.map_coordinates(inputs, jnp.stack(coordinates), order, mode, cval)
+    image = ndi.map_coordinates(inputs, jnp.stack(coordinates), order, padding_mode, cval)
     image = rearrange(image, "(b c) h w -> b h w c", c=channel)
     image = jnp.reshape(image, (*batch_dims, *jnp.shape(image)[1:]))
     return image
+
+
+def flip_left_right(inputs: chex.Array) -> chex.Array:
+    return inputs[..., :, ::-1, :]
+
+
+def flip_up_down(inputs: chex.Array) -> chex.Array:
+    return inputs[..., ::-1, :, :]
 
 
 def resized_crop(
@@ -108,6 +124,74 @@ def center_crop(inputs: chex.Array, *, size: int | tuple[int, int]) -> chex.Arra
     top = int((img_h - height) // 2)
     left = int((img_w - width) // 2)
     return crop(inputs, top, left, height, width)
+
+
+def three_crop(
+    inputs: chex.Array,
+    *,
+    size: int | tuple[int, int],
+    method: str = "linear",
+    antialias: bool = True,
+) -> tp.Sequence[chex.Array]:
+    """Cropping three patches from images.
+
+    Args:
+        inputs: image array with shape (..., H, W, C).
+        size: desired size of output images.
+        method: interpolation method.
+        antialias: apply antialias.
+
+    Returns:
+        A tuple of upper left, center and lower right patches.
+    """
+    *batch_dims, img_h, img_w, channel = jnp.shape(inputs)
+    base_size = min(img_h, img_w)
+    upper_left = crop(inputs, 0, 0, base_size, base_size)
+    center = center_crop(inputs, size=base_size)
+    lower_right = crop(inputs, img_h - base_size, img_w - base_size, base_size, base_size)
+    output_shape = (*batch_dims, *_pair(size), channel)
+    return tree_util.tree_map(
+        lambda x: jax.image.resize(x, output_shape, method=method, antialias=antialias),
+        (upper_left, center, lower_right),
+    )
+
+
+def five_crop(inputs: chex.Array, *, size: int | tuple[int, int]) -> tp.Sequence[chex.Array]:
+    """Cropping five patches from images.
+
+    Args:
+        inputs: image array with shape (..., H, W, C).
+        size: desired size of output images.
+
+    Returns:
+        A tuple of upper left, upper right, center, lower left and lower right patches.
+    """
+    *_, img_h, img_w, _ = jnp.shape(inputs)
+    size = _pair(size)
+
+    upper_left = crop(inputs, 0, 0, *size)
+    upper_right = crop(inputs, 0, img_w - size[1], *size)
+    center = center_crop(inputs, size=size)
+    lower_left = crop(inputs, img_h - size[0], 0, *size)
+    lower_right = crop(inputs, img_h - size[0], img_w - size[1], *size)
+    return upper_left, upper_right, center, lower_left, lower_right
+
+
+def ten_crop(inputs: chex.Array, *, size: int | tuple[int, int], vertical: bool = False) -> tp.Sequence[chex.Array]:
+    """Cropping ten patches from images.
+
+    Args:
+        inputs: image array with shape (..., H, W, C).
+        size: desired size of output images.
+        vertical: if True, vertically flipping the cropped patches, instead of horizontal.
+
+    Returns:
+        A tuple of upper left, upper right, center, lower left and lower right patches,
+        and flipped version of them.
+    """
+    cropped = five_crop(inputs, size=size)
+    flipped = tree_util.tree_map(flip_up_down if vertical else flip_left_right, cropped)
+    return (*cropped, *flipped)
 
 
 def random_crop(key: chex.PRNGKey, inputs: chex.Array, *, size: int | tuple[int, int]) -> chex.Array:
@@ -168,19 +252,18 @@ def random_resized_crop(
         crop_h = jnp.where(condition, h, crop_h)
         crop_w = jnp.where(condition, w, crop_w)
 
-    return resized_crop(
-        inputs,
-        top,
-        left,
-        crop_h,
-        crop_w,
-        size=size,
-        method=method,
-        antialias=antialias,
-    )
+    return resized_crop(inputs, top, left, crop_h, crop_w, size=size, method=method, antialias=antialias)
 
 
-def rotate(inputs: chex.Array, *, angle: float, center: tp.Optional[float | tuple[float, float]]) -> chex.Array:
+def rotate(
+    inputs: chex.Array,
+    *,
+    angle: float,
+    center: tp.Optional[float | tuple[float, float]],
+    method: str = "linear",
+    padding_mode: str = "nearest",
+    cval: float = 0.0,
+) -> chex.Array:
     # TODO: add argument support.
     if center is None:
         *_, img_h, img_w, _ = jnp.shape(inputs)
@@ -193,7 +276,7 @@ def rotate(inputs: chex.Array, *, angle: float, center: tp.Optional[float | tupl
     offset_x = center_x - center_x * cos + center_y * sin
     offset_y = center_y - center_x * sin - center_y * cos
     matrix = jnp.array([[cos, -sin, offset_x], [sin, cos, offset_y], [0, 0, 1]], dtype=inputs.dtype)
-    return affine_transform(inputs, matrix)
+    return affine_transform(inputs, matrix, method=method, padding_mode=padding_mode, cval=cval)
 
 
 def rot90(inputs: chex.Array, n: int) -> chex.Array:

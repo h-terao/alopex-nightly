@@ -29,7 +29,7 @@ def load_variables(
 
     """
 
-    def load_variables(variables, to_load):
+    def load(variables, to_load):
         to_load = traverse_util.flatten_dict(to_load, sep=".")
 
         new_variables, new_mask = {}, {}
@@ -56,7 +56,7 @@ def load_variables(
         variables = variables.unfreeze()
 
     if module_name is None:
-        new_variables, new_mask = load_variables(variables, to_load)
+        new_variables, new_mask = load(variables, to_load)
     else:
         if module_name[-1] == ".":
             module_name = module_name[:-1]
@@ -69,7 +69,7 @@ def load_variables(
                 if key.startswith(module_name):
                     tmp_dict[col][key.removeprefix(module_name + ".")] = array
 
-        tmp_dict, tmp_mask = load_variables(tmp_dict, to_load)
+        tmp_dict, tmp_mask = load(tmp_dict, to_load)
 
         new_variables, new_mask = {}, {}
         for col, arrays in variables.items():

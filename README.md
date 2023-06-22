@@ -1,45 +1,38 @@
 <h1 align='center'>Alopex</h1>
 
-Alopex is a library that accelerates the prototyping of deep learning projects with JAX.
+Alopex provides useful tools to accelerate the prototyping of deep learning projects with JAX.
 
 ## Installation
 
 1. Install JAX for your environment. See details in [installation section of JAX project](https://github.com/google/jax#installation).
 2. Install Alopex via pip:
 ```bash
-$ pip install git+https://github.com/h-terao/Alopex
+$ pip install git+https://github.com/h-terao/alopex-nightly
 ```
 
 ## Modules overview
 
-### training
+- training: This module provides training utilities, including abstracted training loop, mixed precision, and finetuning.
+- interpreters: Useful tools to evaluate functions.
+- pytorch: Utilities to integrate the PyTorch models into JAX/Flax using the name-based conversion.
+- serialization: Simple read/write functions.
+- nets: Off-the-shelf neural network models with pretrained parameters. All pretraied parameters are originally provided by the PyTorch libraries, and converted by `alopex.pytorch`.
+- transforms: Off-the-shelf transformation for the computer vision.
 
-Utilities for training. `train_loop` and `eval_loop` applied functions. `DynamicScale` is implemented for mixed precision training. This is a forked version of `flax.training.dynamic_scale.DynamicScale`, but split `grad` and `update`
+## JAX Tips
 
-### interpreters
+This section provide JAX and Flax tips.
 
-### pytorch
+### Gradient accumulation
 
-`alopex.pytorch` is a utility to integrate the PyTorch models into JAX/Flax using the name-based conversion.
-
-### serialization
-
-`alopex.serialization` provides simple read/write functions.
-
-### nets
+To perform the gradient accumulation, `optax.MultiSteps` is easily available.
+Loss scaling is not required.
 
 ```python
-from torchvision import models
-import alopex
+import optax
 
-torch_model = models.resnet18(pretrained=True)
-torch_vars = alopex.pytorch.convert_torch_model(torch_model)
+num_accumulate_batches = 10
 
-flax_model = alopex.nets.resnet18(...)
-variables = flax_model.init(key, ...)  # init.
-variables, masks = alopex.interpreters.load_variables(variables, torch_vars)
+tx = ...  # define Optax optimizer (e.g., SGD).
+tx = optax.MultiSteps(tx, every_k_schedule=num_accumulate_batches)
 ```
-
-### transforms
-
-`alopex.transforms` mainly provides transformations for image and video domains.

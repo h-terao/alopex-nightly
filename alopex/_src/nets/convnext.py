@@ -48,7 +48,8 @@ class ConvNeXt(linen.Module):
     init_layer_scale: float = 1e-6
     num_classes: int = 1000
     dtype: chex.ArrayDType = jnp.float32
-    norm_dtype: chex.ArrayDType | None = None
+    norm_dtype: chex.ArrayDType = jnp.float32
+    param_dtype: chex.ArrayDType = jnp.float32
     axis_name: str | None = None
 
     @linen.compact
@@ -56,14 +57,16 @@ class ConvNeXt(linen.Module):
         dense = partial(
             linen.Dense,
             dtype=self.dtype,
+            param_dtype=self.param_dtype,
             kernel_init=linen.initializers.variance_scaling(scale=0.02, mode="fan_in", distribution="truncated_normal"),
         )
         conv = partial(
             linen.Conv,
             dtype=self.dtype,
+            param_dtype=self.param_dtype,
             kernel_init=linen.initializers.variance_scaling(scale=0.02, mode="fan_in", distribution="truncated_normal"),
         )
-        norm = partial(linen.LayerNorm, dtype=self.norm_dtype or self.dtype, axis_name=self.axis_name)
+        norm = partial(linen.LayerNorm, dtype=self.norm_dtype, param_dtype=self.param_dtype, axis_name=self.axis_name)
         stochastic_depth = partial(linen.Dropout, broadcast_dims=(-1, -2, -3), deterministic=not is_training)
 
         assert len(self.widths) == len(self.depths)

@@ -9,7 +9,6 @@ import jax
 import chex
 
 __all__ = ["sow", "sow_grad", "harvest", "plant", "call_and_reap", "reap"]
-
 _thread_local = threading.local()
 
 
@@ -24,17 +23,15 @@ def sow(value: chex.Array, *, col: str, name: str, mode: str = "strict", reverse
     Harvest transformation collects or rewrites the marked variables.
 
     Args:
-        value: Variable to be tagged and named.
-        col: Collection name where value is sown.
-        name: Name of value.
-        mode: How to sow the value.
+        value: a variable to be tagged and named.
+        col: collection name where value is sown.
+        name: name of value.
+        mode: how to sow the value.
             If `strict`, the same pair of col and name is available once. If another value is sown with
             the same col and name, raise an error. If `clobber`, the same pair of col and name is available
             any number of times, and the latest value is kept. If `append`, all values sown with the same
             col and name are reaped as a list of objects.
-        reverse: Reverse the output of harvest transformation.
-            If mode is clobber, the oldest value is returned. If mode is append, the order of the reaped values
-            is reversed; i.e., the first element becomes the latest value.
+        reverse: reverse the output of harvest transformation.
 
     Returns:
         The original value.
@@ -76,17 +73,15 @@ def sow_grad(
     Harvest transformation collects grads of the marked variables.
 
     Args:
-        value: Variable to be tagged and named.
-        col: Collection name where grad is sown.
-        name: Name of value.
-        mode: How to sow the grad of value.
+        value: variable to be tagged and named.
+        col: collection name where grad is sown.
+        name: name of value.
+        mode: how to sow the grad of value.
             If `strict`, the same pair of col and name is available once. If another value is sown with
             the same col and name, raise an error. If `clobber`, the same pair of col and name is available
             any number of times, and the latest value is kept. If `append`, all values sown with the same
             col and name are reaped as a list of objects.
-        reverse: Reverse the output of harvest transformation.
-            If mode is clobber, the oldest value is returned. If mode is append, the order of the reaped values
-            is reversed; i.e., the first element becomes the latest value.
+        reverse: everse the output of harvest transformation.
 
     Returns:
         The original value.
@@ -126,8 +121,8 @@ def harvest(fun: tp.Callable, *, col: str) -> tp.Callable:
     are based on `harvest`.
 
     Args:
-        fun: Function to transform.
-        col: Name of the variable collection.
+        fun: a callable to harvest.
+        col: name of the variable collection.
 
     Returns:
         A wraped version of fun.
@@ -159,8 +154,8 @@ def plant(fun: tp.Callable, *, col: str | tp.Sequence[str]) -> tp.Callable:
     """Creates a function that replaces sow-ed values in fun to the specified `plants`.
 
     Args:
-        fun: Function to plant values.
-        col: A name of the variable collection to plant values.
+        fun: a callable to plant values.
+        col: name of the variable collection to plant values.
 
     Returns:
         A wrapped version of fun.
@@ -189,11 +184,11 @@ def call_and_reap(fun: tp.Callable, *, col: str) -> tp.Callable:
     """Creates a function that returns outputs and collection of sown variables from fun.
 
     Args:
-        fun: Function to collect the sown values.
-        col: A name of the variable collection to collect values.
+        fun: a callable to collect the sown values.
+        col: name of the variable collection to collect values.
 
     Returns:
-        A wrapped version of fun.
+        A wrapped version of `fun`.
 
     Example::
 
@@ -215,8 +210,8 @@ def reap(fun: tp.Callable, *, col: str) -> tp.Callable:
     """Creates a function that returns the collection of sown variables from fun.
 
     Args:
-        fun: Function to collect the sown values.
-        col: A name of the variable collection to collect values.
+        fun: a callable to collect the sown values.
+        col: name of the variable collection to collect values.
 
     Returns:
         A wrapped version of fun.

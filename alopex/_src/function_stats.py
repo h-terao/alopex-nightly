@@ -1,5 +1,6 @@
 from __future__ import annotations
 import typing as tp
+import functools
 import time
 
 import jax
@@ -15,20 +16,21 @@ def flop(
     """Creates a function that count floating operations (FLOPs) of fun.
 
     Args:
-        fun: Function to count FLOPs.
-        static_argnums: An optional int or collection of ints that specify which positional
+        fun: a callable to count memory access cost.
+        static_argnums: an optional int or collection of ints that specify which positional
             arguments to treat as static (compile-time constant).
-        backend: A string representing the XLA backend. cpu, gpu or tpu.
-        donate_argnums: Specify which positional argument buffers are "donated" to the computation.
+        backend: a string representing the XLA backend. cpu, gpu or tpu.
+        donate_argnums: specify which positional argument buffers are "donated" to the computation.
 
     Returns:
-        A wrapped version of fun.
+        A wrapped version of `fun`.
 
     NOTE:
         Modify from
         https://github.com/google-research/scenic/blob/main/scenic/common_lib/debug_utils.py
     """
 
+    @functools.wraps(fun)
     def wrapped(*args, **kwargs) -> chex.Scalar:
         computation = jax.xla_computation(
             fun,
@@ -54,16 +56,17 @@ def mac(
         MAC is more commonly used than FLOP in literature.
 
     Args:
-        fun: Function to count MACs.
-        static_argnums: An optional int or collection of ints that specify which positional
+        fun: a callable to count memory access cost.
+        static_argnums: an optional int or collection of ints that specify which positional
             arguments to treat as static (compile-time constant).
-        backend: A string representing the XLA backend. cpu, gpu or tpu.
-        donate_argnums: Specify which positional argument buffers are "donated" to the computation.
+        backend: a string representing the XLA backend. cpu, gpu or tpu.
+        donate_argnums: specify which positional argument buffers are "donated" to the computation.
 
     Returns:
-        A wrapped version of fun.
+        A wrapped version of `fun`.
     """
 
+    @functools.wraps(fun)
     def wrapped(*args, **kwargs) -> chex.Scalar:
         flops = flop(fun, static_argnums, backend, donate_argnums)(*args, **kwargs)
         return flops / 2
@@ -80,17 +83,17 @@ def memory_access(
     """Creates a function that count the total memory access cost (bytes) of fun.
 
     Args:
-        fun: Function to count memory access cost.
-        unit: Unit of memory access cost. None, K, M, G, T, P, E or Z.
-        static_argnums: An optional int or collection of ints that specify which positional
+        fun: a callable to count memory access cost.
+        static_argnums: an optional int or collection of ints that specify which positional
             arguments to treat as static (compile-time constant).
-        backend: A string representing the XLA backend. cpu, gpu or tpu.
-        donate_argnums: Specify which positional argument buffers are "donated" to the computation.
+        backend: a string representing the XLA backend. cpu, gpu or tpu.
+        donate_argnums: specify which positional argument buffers are "donated" to the computation.
 
     Returns:
-        A wrapped version of fun.
+        A wrapped version of `fun`.
     """
 
+    @functools.wraps(fun)
     def wrapped(*args, **kwargs) -> chex.Scalar:
         computation = jax.xla_computation(
             fun,
@@ -114,12 +117,12 @@ def timeit(
     """Creates a function that computes average latency (sec) of fun.
 
     Args:
-        fun: Function to time.
-        num_iters: Number of iterations used to compute average runtime of fun.
-        warmup_iters: Number of iterations used to warmup fun.
+        fun: a callable to time.
+        num_iters: number of calls compute average runtime.
+        warmup_iters: number of calls to warm-up `fun`.
 
     Returns:
-        A wrapped version of fun.
+        A wrapped version of `fun`.
     """
 
     def call(*args, n, **kwargs) -> None:
@@ -127,6 +130,7 @@ def timeit(
             fun(*args, **kwargs)
             jax.random.uniform(jax.random.PRNGKey(0)).block_until_ready()
 
+    @functools.wraps(fun)
     def wrapped(*args, **kwargs):
         call(*args, **kwargs, n=warmup_iters)
 
