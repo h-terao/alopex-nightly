@@ -1,7 +1,9 @@
 import optax
 
 
-def accumulate_grads(opt: optax.GradientTransformation, num_accumulate_steps: int = 1) -> optax.GradientTransformation:
+def accumulate_grads(
+    opt: optax.GradientTransformation, num_accumulate_steps: int = 1
+) -> optax.GradientTransformation:
     """Wraps optax optimizer and performs the gradient accumulation.
 
     Args:

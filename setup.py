@@ -23,7 +23,7 @@ _VERSION = _get_version()
 setup(
     name="alopex",
     version=_VERSION,
-    url="https://github.com/h-terao/Alopex",
+    url="https://github.com/h-terao/alopex",
     license="Apache 2.0",
     author="h-terao",
     description="Aceelerate prototyping of deep learning projects with JAX.",
