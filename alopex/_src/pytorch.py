@@ -10,16 +10,9 @@ from jax import tree_util
 import chex
 from einops import rearrange
 
-try:
-    import torch
-    import torch.nn as nn
+import torch
+import torch.nn as nn
 
-    TORCH_AVAILABLE = True
-    Tensor = torch.Tensor
-
-except ImportError:
-    TORCH_AVAILABLE = False
-    Tensor = tp.Any  # used for type annotations.
 
 __all__ = ["assert_allclose_array_tensor", "register_torch_module", "convert_torch_model"]
 REGISTRY = {}
@@ -27,7 +20,7 @@ REGISTRY = {}
 
 def assert_allclose_array_tensor(
     array: chex.Array,
-    tensor: Tensor,
+    tensor: torch.Tensor,
     array_format: str = "...",
     torch_format: str = "...",
     *,
@@ -91,9 +84,6 @@ def convert_torch_model(torch_model: nn.Module, buffer_col: str = "buffers") -> 
     Returns:
         A dict that can be loaded by `utils.load_variables`.
     """
-    if not TORCH_AVAILABLE:
-        msg = "PyTorch is not available. Install `torch` to use the `convert_torch_model` method"
-        raise RuntimeError(msg)
 
     def convert_tensor(v):
         if isinstance(v, torch.Tensor):
