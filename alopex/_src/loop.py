@@ -63,7 +63,7 @@ def _split_batch(iterable: tp.Iterable, max_length: int = -1, prefetch: bool = F
     for batch_idx, batch in enumerate(iterable):
         for next_batch, actual_size, is_remainder in split(batch):
             if prefetch:
-                next_batch = tree_util.tree_map(lambda v: jax.device_put_sharded(v, devices), next_batch)
+                next_batch = tree_util.tree_map(lambda v: jax.device_put_sharded(list(v), devices), next_batch)
 
             if prev_batch is not None:
                 yield prev_batch, prev_size, prev_is_remainder
