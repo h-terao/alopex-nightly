@@ -36,3 +36,7 @@ num_accumulate_batches = 10
 tx = ...  # define Optax optimizer (e.g., SGD).
 tx = optax.MultiSteps(tx, every_k_schedule=num_accumulate_batches)
 ```
+
+## Current problem
+
+- mode=jit is slow. Use mode=pmap for acceleration.

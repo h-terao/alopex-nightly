@@ -1,6 +1,7 @@
 """Training and evaluation loops."""
 from __future__ import annotations
 import typing as tp
+import itertools
 import warnings
 
 import jax
@@ -22,7 +23,7 @@ EvalFun = tp.Callable[[TrainState, chex.ArrayTree], dict[str, chex.Array]]
 EvalLoop = tp.Callable[[TrainState, tp.Iterable[chex.ArrayTree], tp.Optional[int]], dict[str, chex.Array]]
 
 
-def _split_batch(iterable: tp.Iterable, max_length: int = -1, prefetch: bool = False, devices=None):
+def _split_batch(iterable: tp.Iterable, max_length: tp.Optional[int] = None, prefetch: bool = False, devices=None):
     devices = devices or jax.local_devices()
     num_devices = len(devices)
 
@@ -59,8 +60,11 @@ def _split_batch(iterable: tp.Iterable, max_length: int = -1, prefetch: bool = F
 
         return new_batch
 
+    if max_length is not None:
+        iterable = itertools.islice(iterable, max_length)
+
     prev_batch, prev_size, prev_is_remainder = None, None, None
-    for batch_idx, batch in enumerate(iterable):
+    for batch in iterable:
         for next_batch, actual_size, is_remainder in split(batch):
             if prefetch:
                 next_batch = tree_util.tree_map(lambda v: jax.device_put_sharded(list(v), devices), next_batch)
@@ -71,9 +75,6 @@ def _split_batch(iterable: tp.Iterable, max_length: int = -1, prefetch: bool = F
             prev_batch = next_batch
             prev_size = actual_size
             prev_is_remainder = is_remainder
-
-        if batch_idx + 1 == max_length:
-            break
 
     if prev_batch is not None:
         yield prev_batch, prev_size, prev_is_remainder
@@ -109,7 +110,6 @@ def train_loop(
     prefetch: bool = False,
     replicate: bool = True,
     axis_name: tp.Optional[str] = None,
-    devices: tp.Optional[list[chex.Device]] = None,
 ) -> TrainLoop:
     """
     Args:
@@ -120,23 +120,22 @@ def train_loop(
         replicate: if True, automatically replicate and unreplicate train_state
             for multi-device training.
         axis_name: train_epoch uses multiple devices.
-        devices: JAX devices.
+
+    FIXME:
+        Currently, mode=jit is very slow. Use mode=none for debugging and pmap for training and evaluation.
     """
     assert mode in ["none", "jit", "pmap"], f"mode should be none, jit or pmap, but given {mode}"
 
     prefix = prefix or ""
     if mode in "pmap":
-        train_fun = jax.pmap(train_fun, axis_name=axis_name, devices=devices)
+        train_fun = jax.pmap(train_fun, axis_name=axis_name)
 
         def train_epoch(train_state, iterable, max_length: tp.Optional[int] = None):
             if replicate:
-                train_state = jax_utils.replicate(train_state, devices)
-
-            if max_length is None:
-                max_length = -1
+                train_state = jax_utils.replicate(train_state)
 
             accum_scalars = {}
-            for batch, actual_size, is_remainder in _split_batch(iterable, max_length, prefetch, devices):
+            for batch, actual_size, is_remainder in _split_batch(iterable, max_length, prefetch):
                 if is_remainder:
                     raise RuntimeError("Batch size should be divisible by number of devices for training.")
                 train_state, scalars = train_fun(train_state, batch)
@@ -144,30 +143,26 @@ def train_loop(
 
             summary = _summarize_scalars(prefix, accum_scalars)
             if replicate:
-                train_state = jax_utils.unreplicate(train_state, devices)
+                train_state = jax_utils.unreplicate(train_state)
 
             return train_state, summary
 
     else:
-        if isinstance(devices, tp.Sequence):
-            if len(devices) > 1:
-                warnings.warn(f"Multiple devices are specified, but only use the first device: {devices[0]}.")
-            devices = devices[0]
-
         if mode == "jit":
-            train_fun = jax.jit(train_fun, device=devices)
+            warnings.warn(
+                "JIT mode may leads very slow evaluation, because of bugs. Consider to use none or pmap mode, instead of jit."
+            )
+            train_fun = jax.jit(train_fun)
 
         def train_epoch(train_state, iterable, max_length: tp.Optional[int] = None):
-            if max_length is None:
-                max_length = -1
+            if max_length is not None:
+                iterable = itertools.islice(iterable, max_length)
 
             accum_scalars = {}
-            for batch_idx, batch in enumerate(iterable):
+            for batch in iterable:
                 batch_size = min(map(len, tree_util.tree_leaves(batch)))
                 train_state, scalars = train_fun(train_state, batch)
                 accum_scalars = _accumulate_scalars(accum_scalars, scalars, batch_size)
-                if batch_idx + 1 == max_length:
-                    break
 
             summary = _summarize_scalars(prefix, accum_scalars)
             return train_state, summary
@@ -182,7 +177,6 @@ def eval_loop(
     prefetch: bool = False,
     replicate: bool = True,
     axis_name: tp.Optional[str] = None,
-    devices: tp.Optional[list[chex.Device] | chex.Device] = None,
 ) -> EvalLoop:
     """
     Args:
@@ -199,18 +193,15 @@ def eval_loop(
 
     prefix = prefix or ""
     if mode == "pmap":
-        eval_fun = jax.pmap(eval_fun, axis_name=axis_name, devices=devices)
+        eval_fun = jax.pmap(eval_fun, axis_name=axis_name)
 
         def eval_epoch(train_state, iterable, max_length=None):
             if replicate:
-                train_state = jax_utils.replicate(train_state, devices)
-
-            if max_length is None:
-                max_length = -1
+                train_state = jax_utils.replicate(train_state)
 
             accum_scalars = {}
             remainder_count = 0
-            for batch, actual_size, is_remainder in _split_batch(iterable, max_length, prefetch, devices):
+            for batch, actual_size, is_remainder in _split_batch(iterable, max_length, prefetch):
                 if is_remainder:
                     remainder_count += 1
 
@@ -229,25 +220,21 @@ def eval_loop(
             return summary
 
     else:
-        if isinstance(devices, tp.Sequence):
-            if len(devices) > 1:
-                warnings.warn(f"Multiple devices are specified, but use {devices[0]}.")
-            devices = devices[0]
-
         if mode == "jit":
-            eval_fun = jax.jit(eval_fun, device=devices)
+            warnings.warn(
+                "JIT mode may leads very slow evaluation, because of bugs. Consider to use none or pmap mode, instead of jit."  # noqa
+            )
+            eval_fun = jax.jit(eval_fun)
 
         def eval_epoch(train_state, iterable, max_length=None):
-            if max_length is None:
-                max_length = -1
+            if max_length is not None:
+                iterable = itertools.islice(iterable, max_length)
 
             accum_scalars = {}
-            for batch_idx, batch in enumerate(iterable):
+            for batch in iterable:
                 batch_size = min(map(len, tree_util.tree_leaves(batch)))
                 scalars = eval_fun(train_state, batch)
                 accum_scalars = _accumulate_scalars(accum_scalars, scalars, batch_size)
-                if batch_idx + 1 == max_length:
-                    break
 
             summary = _summarize_scalars(prefix, accum_scalars)
             return summary
