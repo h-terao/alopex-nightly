@@ -244,7 +244,7 @@ def eval_loop(
             accum_scalars = {}
             for batch_idx, batch in enumerate(iterable):
                 batch_size = min(map(len, tree_util.tree_leaves(batch)))
-                train_state, scalars = eval_fun(train_state, batch)
+                scalars = eval_fun(train_state, batch)
                 accum_scalars = _accumulate_scalars(accum_scalars, scalars, batch_size)
                 if batch_idx + 1 == max_length:
                     break
