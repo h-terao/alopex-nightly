@@ -9,10 +9,8 @@ import numpy as np
 from jax import tree_util
 import chex
 from einops import rearrange
-
 import torch
 import torch.nn as nn
-
 
 __all__ = ["assert_allclose_array_tensor", "register_torch_module", "convert_torch_model"]
 REGISTRY = {}

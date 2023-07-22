@@ -1,3 +1,4 @@
+"""Stores the environ information."""
 try:
     import torch  # NOQA
 

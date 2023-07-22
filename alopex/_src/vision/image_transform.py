@@ -235,6 +235,7 @@ def random_resized_crop(
     top = (img_h - size[0]) // 2
     left = (img_w - size[1]) // 2
 
+    # Follow PyTorch implementation, but always loop 10 times to avoid errors.
     for next_key in jr.split(key, 10):
         target_area_key, aspect_ratio_key, top_key, left_key = jr.split(next_key, 4)
         target_area = area * jr.uniform(target_area_key, (), minval=scale[0], maxval=scale[1])
