@@ -126,8 +126,10 @@ def train_loop(
     """
     assert mode in ["none", "jit", "pmap"], f"mode should be none, jit or pmap, but given {mode}"
 
-    prefix = prefix or ""
-    if mode in "pmap":
+    if prefix is None:
+        prefix = ""
+
+    if mode == "pmap":
         train_fun = jax.pmap(train_fun, axis_name=axis_name)
 
         def train_epoch(train_state, iterable, max_length: tp.Optional[int] = None):
@@ -150,7 +152,10 @@ def train_loop(
     else:
         if mode == "jit":
             warnings.warn(
-                "JIT mode may leads very slow evaluation, because of bugs. Consider to use none or pmap mode, instead of jit."
+                (
+                    "JIT mode may leads very slow evaluation, because of bugs. "
+                    "Consider to use none or pmap mode, instead of jit."
+                )
             )
             train_fun = jax.jit(train_fun)
 
@@ -191,7 +196,9 @@ def eval_loop(
     """
     assert mode in ["none", "jit", "pmap"], f"mode should be none, jit or pmap, but given {mode}"
 
-    prefix = prefix or ""
+    if prefix is None:
+        prefix = ""
+
     if mode == "pmap":
         eval_fun = jax.pmap(eval_fun, axis_name=axis_name)
 
@@ -200,12 +207,12 @@ def eval_loop(
                 train_state = jax_utils.replicate(train_state)
 
             accum_scalars = {}
-            remainder_count = 0
+            num_remainders = 0
             for batch, actual_size, is_remainder in _split_batch(iterable, max_length, prefetch):
                 if is_remainder:
-                    remainder_count += 1
+                    num_remainders += 1
 
-                if remainder_count == 2:
+                if num_remainders == 2:
                     warnings.warn(
                         """You use multi-GPUs to evaluate your model, but it seems that the batch size
                         is not divisble by the number of GPUs. This configuration also generates the
