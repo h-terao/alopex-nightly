@@ -8,8 +8,11 @@ from alopex._src.functions import accuracy_with_integer_labels
 from alopex._src.functions import permutate
 from alopex._src.functions import reverse_grad
 
+# Functions from optax.
+from optax import smooth_labels
 from optax import squared_error
 from optax import l2_loss
+from optax import log_cosh
 from optax import sigmoid_binary_cross_entropy
 from optax import softmax_cross_entropy
 from optax import softmax_cross_entropy_with_integer_labels
