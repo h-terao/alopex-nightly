@@ -432,7 +432,7 @@ def resized_crop(
     """
     *batch_dims, _, _, img_c = jnp.shape(img)
     size = _pair(size)
-    shape = jnp.array([*batch_dims, *size, img_c])
+    shape = [*batch_dims, *size, img_c]
     scale = jnp.array((size[0] / height, size[1] / width))
     translation = -scale * jnp.array((top, left))
     return jax.image.scale_and_translate(
@@ -556,7 +556,7 @@ def random_resized_crop(
         j = jr.randint(left_rng, (), 0, jnp.clip(img_w - w + 1, 1, None))
 
         top, left, crop_h, crop_w = tree_util.tree_map(
-            functools.partial(jnp.where, jnp.logical_and(0 < w < img_w, 0 < h < img_h)),
+            functools.partial(jnp.where, jnp.logical_and(w < img_w, h < img_h)),
             (i, j, h, w),
             (top, left, crop_h, crop_w),
         )
