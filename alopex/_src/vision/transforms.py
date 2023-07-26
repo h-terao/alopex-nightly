@@ -552,8 +552,8 @@ def random_resized_crop(
 
         w = jnp.round(jnp.sqrt(target_area * aspect_ratio))
         h = jnp.round(jnp.sqrt(target_area / aspect_ratio))
-        i = jr.randint(top_rng, (), 0, min(img_h - h + 1, 1))
-        j = jr.randint(left_rng, (), 0, min(img_w - w + 1, 1))
+        i = jr.randint(top_rng, (), 0, jnp.clip(img_h - h + 1, 1, None))
+        j = jr.randint(left_rng, (), 0, jnp.clip(img_w - w + 1, 1, None))
 
         top, left, crop_h, crop_w = tree_util.tree_map(
             functools.partial(jnp.where, jnp.logical_and(0 < w < img_w, 0 < h < img_h)),
