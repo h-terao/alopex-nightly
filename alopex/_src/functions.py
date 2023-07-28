@@ -106,11 +106,5 @@ def reverse_grad(x: chex.Array) -> chex.Array:
     def f(v):
         return v
 
-    def forward(x):
-        return x, ()
-
-    def backward(_, g):
-        return (-g,)
-
-    f.defvjp(forward, backward)
+    f.defvjp(lambda x: (x, ()), lambda _, g: (-g,))
     return f(x)
