@@ -7,6 +7,7 @@ from alopex import interpreters
 from alopex import pytorch
 from alopex import serialization
 from alopex import pytypes
+from alopex import data
 
 from alopex import vision
 
