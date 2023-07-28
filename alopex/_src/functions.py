@@ -4,6 +4,7 @@ import typing as tp
 
 import jax
 import jax.numpy as jnp
+import jax.random as jr
 import jax.nn as nn
 import chex
 
@@ -108,3 +109,30 @@ def reverse_grad(x: chex.Array) -> chex.Array:
 
     f.defvjp(lambda x: (x, ()), lambda _, g: (-g,))
     return f(x)
+
+
+def gumbel_softmax(
+    rng: jr.PRNGKey,
+    logits: chex.Array,
+    tau: float = 1,
+    hard: bool = False,
+    axis: int = -1,
+) -> chex.Array:
+    """Gumbel softmax function.
+
+    Args:
+        rng
+        logits: unnormalized probabilities.
+        tau: temperature parameter.
+        hard: if True, the outputs will be discretized as one-hot vectors.
+        axis: axis name to be normalized.
+    """
+    gumbels = jr.uniform(rng, jnp.shape(logits))
+    gumbels = -jnp.log(-jnp.log(gumbels))
+    gumbels = (logits + gumbels) / tau
+    probs = nn.softmax(gumbels, axis=axis)
+    if hard:
+        num_classes = jnp.size(logits, axis=axis)
+        one_hot = nn.one_hot(jnp.argmax(probs, axis=axis), num_classes, axis=axis)
+        probs = jax.lax.stop_gradient(one_hot - probs) + probs
+    return probs
