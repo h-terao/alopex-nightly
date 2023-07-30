@@ -8,6 +8,7 @@ from alopex import pytorch
 from alopex import serialization
 from alopex import pytypes
 from alopex import data
+from alopex import utils
 
 from alopex import vision
 

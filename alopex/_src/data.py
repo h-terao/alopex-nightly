@@ -35,3 +35,12 @@ class DataLoader:
 
     def __iter__(self) -> tp.Iterable:
         yield from itertools.islice(self.iterable, len(self))
+
+
+class Dataset(tp.NamedTuple):
+    """A basic container to store datasets."""
+
+    train_iter: tp.Iterable
+    valid_iter: tp.Iterable
+    test_iter: tp.Iterable
+    data_meta: dict[str, tp.Any]
