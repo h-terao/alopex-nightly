@@ -2,6 +2,8 @@
 
 from alopex._src.functions import absolute_error
 from alopex._src.functions import l1_loss
+from alopex._src.functions import softmax_focal_loss
+from alopex._src.functions import softmax_focal_loss_with_integer_labels
 
 from alopex._src.functions import accuracy
 from alopex._src.functions import accuracy_with_integer_labels

@@ -32,6 +32,36 @@ def absolute_error(predictions: chex.Array, targets: tp.Optional[chex.Array] = N
 l1_loss = absolute_error
 
 
+def softmax_focal_loss(
+    logits: chex.Array, labels: chex.Array, alpha: tp.Optional[chex.Array] = None, gamma: float = 0
+) -> chex.Array:
+    """Calculates the focal loss.
+
+    References:
+        [Lin et al., 2017](https://arxiv.org/abs/1708.02002v2)
+
+    Args:
+        logits: unnormalized log probabilities, with shape `[..., num_classes]`.
+        labels: valid probability distributions, with a shape broadcastable to that of `logits`.
+        alpha: class-wise weight of shape `[num_classes]`.
+        gamma
+    """
+    if alpha is None:
+        alpha = jnp.ones(jnp.size(logits, axis=-1), dtype=logits.dtype)
+    ce_loss = -labels * nn.log_softmax(logits, axis=-1)
+    pt = jnp.exp(-ce_loss)
+    focal_loss = alpha * (1 - pt) ** gamma * ce_loss
+    return jnp.sum(focal_loss, axis=-1)
+
+
+def softmax_focal_loss_with_integer_labels(
+    logits: chex.Array, labels: chex.Array, alpha: tp.Optional[chex.Array] = None, gamma: float = 0
+) -> chex.Array:
+    num_classes = jnp.size(logits, axis=-1)
+    labels = nn.one_hot(labels, num_classes, dtype=logits.dtype)
+    return softmax_focal_loss(logits, labels, alpha, gamma)
+
+
 def accuracy(predictions: chex.Array, labels: chex.Array, k: int = 1) -> chex.Array:
     """Calculates the classification top-k accuracy for a set of predictions.
 
