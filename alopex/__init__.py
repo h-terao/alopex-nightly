@@ -17,7 +17,7 @@ from alopex import vision
 
 from alopex._src.configuration import using_config
 from alopex._src.configuration import configure
-from alopex._src.configuration import set_config
+from alopex._src.configuration import set_global_config
 from alopex._src.configuration import get_config
 
 from alopex._src.registry import Registry

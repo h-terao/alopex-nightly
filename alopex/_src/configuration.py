@@ -28,8 +28,16 @@ def using_config(**configs):
             assert get_config("is_training")
     """
     prev_local_configs = {}
+    strict = configs.pop("_strict_", True)
 
     for key, value in configs.items():
+        if strict and key not in _thread_local.global_configs:
+            msg = (
+                f"{key} is unknown configuration. "
+                f"Configure global {key} using `set_global_config` or pass _strict_=False as an argument."
+            )
+            raise RuntimeError(msg)
+
         if key in _thread_local.local_configs:
             prev_local_configs[key] = _thread_local.local_configs[key]
         _thread_local.local_configs[key] = value
@@ -49,7 +57,7 @@ def configure(fun: tp.Callable, **configs) -> tp.Callable:
     return wrapped
 
 
-def set_config(**configs) -> None:
+def set_global_config(**configs) -> None:
     """Set global configuration.
 
     Args:
