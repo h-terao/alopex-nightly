@@ -15,5 +15,14 @@ from alopex import vision
 # from alopex import layers  # TODO
 # from alopex import nlp  # TODO: future work
 
+from alopex._src.configuration import using_config
+from alopex._src.configuration import configure
+from alopex._src.configuration import set_config
+from alopex._src.configuration import get_config
+
+from alopex._src.registry import Registry
+from alopex._src.registry import registry
+from alopex._src.registry import register
+
 # Utilities.
 from alopex._src.dtypes import get_dtypes
