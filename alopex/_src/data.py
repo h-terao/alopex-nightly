@@ -20,7 +20,7 @@ def count_steps_per_epoch(total: int, batch_size: int, drop_remainder: bool = Fa
     epoch_length = total / batch_size
     if not drop_remainder:
         epoch_length = math.ceil(epoch_length)
-    return epoch_length
+    return int(epoch_length)
 
 
 class DataLoader:
