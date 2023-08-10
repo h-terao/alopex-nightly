@@ -13,6 +13,6 @@ class easydict(dict):
 
 
 def add_prefix_to_dict(inputs: tp.Mapping, prefix: str) -> tp.Mapping:
-    cast_to = type(dict)
-    output = {f"{prefix}{k}": v for k, v in inputs.items()}
-    return cast_to(output)
+    cast_to = type(inputs)
+    outputs = {f"{prefix}{k}": v for k, v in inputs.items()}
+    return cast_to(outputs)
