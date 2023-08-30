@@ -4,7 +4,7 @@ __version__ = "0.1.0"
 from alopex import training
 from alopex import functions
 from alopex import interpreters
-from alopex import pytorch
+from alopex import torch_utils
 from alopex import serialization
 from alopex import pytypes
 from alopex import data
