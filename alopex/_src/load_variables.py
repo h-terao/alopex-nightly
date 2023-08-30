@@ -37,8 +37,12 @@ def load_variables(
             join_name = ".".join(keys)
             if join_name not in to_load:
                 warnings.warn(f"{join_name} is not found in PyTorch model.")
+                new_mask[keys] = False
             elif array.shape != to_load[join_name].shape:
-                msg = f"Mismatch the shape of {join_name}. " f"({array.shape} != {to_load[join_name].shape})."
+                msg = (
+                    f"Mismatch the shape of {join_name}. "
+                    f"({array.shape} != {to_load[join_name].shape})."
+                )
                 warnings.warn(msg)
                 new_mask[keys] = False
             else:
