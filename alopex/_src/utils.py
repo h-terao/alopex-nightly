@@ -1,5 +1,6 @@
 from __future__ import annotations
 import typing as tp
+import math
 
 __all__ = ["easydict", "add_prefix_to_dict"]
 
