@@ -139,3 +139,8 @@ def timeit(
         return (time.time() - start_time) / num_iters
 
     return wrapped
+
+
+def tree_size(tree: chex.ArrayTree) -> int:
+    """Total number of elements in a pytree."""
+    return sum([x.size for x in jax.tree_util.tree_leaves(tree)])
