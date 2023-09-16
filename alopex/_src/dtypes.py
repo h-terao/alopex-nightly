@@ -11,34 +11,26 @@ class DTypes(tp.NamedTuple):
 
 
 def get_dtypes(precision: str | int = "fp32") -> DTypes:
-    """Get dtypes for computation, normalization and parameters.
+    """Returns dtypes for computation, normalization and parameters.
 
     Args:
-        precision: determine precision.
+        precision:
 
     Returns:
         A namedtuple of (dtype, norm_dtype, param_dtype).
     """
-    if isinstance(precision, int):
-        assert precision in [16, 32]
-        if precision == 32:
-            precision = "fp32"
-        elif jax.default_backend() == "tpu":
-            precision = "bf16"
-        else:
-            precision = "fp16"
+    if jax.default_backend() == "tpu" and precision == 16:
+        precision = "bf16"
 
-    assert precision in ["fp32", "fp16", "bf16"]
-    match precision:
-        case "fp32":
-            dtype = norm_dtype = param_dtype = jnp.float32
-        case "fp16":
-            dtype = jnp.float16
-            norm_dtype = param_dtype = jnp.float32
-        case "bf16":
-            dtype = norm_dtype = param_dtype = jnp.bfloat16
-        case _:
-            raise RuntimeError(f"Unknwon precision {precision} is specified.")
+    param_dtype = jnp.float32
+    if precision in ["float32", "fp32", 32]:
+        dtype = norm_dtype = jnp.float32
+    elif precision in ["float16", "fp16", 16]:
+        dtype = jnp.float16
+        norm_dtype = jnp.float32
+    elif precision in ["bfloat16", "bf16"]:
+        dtype = norm_dtype = jnp.bfloat16
+    else:
+        raise ValueError(f"Unknown precision {precision} is specified.")
 
-    dtypes = DTypes(dtype=dtype, norm_dtype=norm_dtype, param_dtype=param_dtype)
-    return dtypes
+    return DTypes(dtype=dtype, norm_dtype=norm_dtype, param_dtype=param_dtype)
