@@ -184,6 +184,7 @@ def eval_loop(
     prefetch: bool = False,
     replicate: bool = True,
     axis_name: tp.Optional[str] = None,
+    disallow_remainder: bool = False,
 ) -> EvalLoop:
     """
     Args:
@@ -194,7 +195,7 @@ def eval_loop(
         replicate: if True, automatically replicate and unreplicate train_state
             for multi-device training.
         axis_name: train_epoch uses multiple devices.
-        devices: JAX devices.
+        disallow_remainder: if True, raise error when the batch size is not divisible by the number of devices.
     """
     assert mode in ["none", "jit", "pmap"], f"mode should be none, jit or pmap, but given {mode}"
 
@@ -221,6 +222,9 @@ def eval_loop(
                         correct summary, but results in inefficient evaluation. You are recommended
                         to set batch size a mupltiple of number of GPUs for efficient evaluation."""
                     )
+
+                if disallow_remainder and is_remainder:
+                    raise RuntimeError("Batch size should be divisible by number of devices for evaluation.")
 
                 scalars = eval_fun(train_state, batch)
                 accum_scalars = _accumulate_scalars(accum_scalars, scalars, actual_size)
